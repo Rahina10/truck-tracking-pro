@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Truck Tracking PRO</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+
+    .topbar {
+      background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+      padding: 0 32px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 10px rgba(26,115,232,0.3);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-logo { font-size: 26px; }
+    .topbar-title { color: white; font-size: 20px; font-weight: 700; }
+    .topbar-sub { color: rgba(255,255,255,0.75); font-size: 13px; }
+    .topbar-badge {
+      background: rgba(255,255,255,0.2); color: white;
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .main { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .kpi-card { background: white; border-radius: 14px; padding: 20px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid #1a73e8; }
+    .kpi-card.green { border-left-color: #34a853; }
+    .kpi-card.orange { border-left-color: #fbbc04; }
+    .kpi-card.red { border-left-color: #ea4335; }
+    .kpi-label { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .kpi-value { font-size: 34px; font-weight: 700; color: #1a202c; line-height: 1; }
+    .kpi-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 22px; }
+
+    .card { background: white; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); overflow: hidden; }
+    .card-header { padding: 18px 22px 14px; border-bottom: 1px solid #f0f4f8; display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 15px; font-weight: 700; color: #1a202c; display: flex; align-items: center; gap: 8px; }
+    .card-body { padding: 20px 22px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    select, input[type="date"], input[type="number"], input[type="text"], input[type="month"] {
+      width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+      font-size: 14px; color: #1a202c; background: #fafbfc; transition: border-color 0.2s; outline: none;
+    }
+    select:focus, input:focus { border-color: #1a73e8; background: white; }
+
+    .btn {
+      padding: 11px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn-primary { background: #1a73e8; color: white; width: 100%; justify-content: center; margin-top: 4px; }
+    .btn-primary:hover { background: #1557b0; }
+    .btn-secondary { background: #f0f4f8; color: #1a73e8; border: 1.5px solid #d0dff7; }
+    .btn-secondary:hover { background: #e0ecff; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+    .btn-danger { background: #fdecea; color: #c62828; border: 1.5px solid #f5c6c6; }
+    .btn-danger:hover { background: #fce4e1; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th {
+      background: #f7f9fc; color: #555; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 14px;
+      text-align: left; border-bottom: 2px solid #e8edf2;
+    }
+    tbody td { padding: 12px 14px; border-bottom: 1px solid #f0f4f8; color: #2d3748; vertical-align: middle; }
+    tbody tr:hover { background: #f7fbff; }
+    tbody tr:last-child td { border-bottom: none; }
+    .today-row { background: #f0fdf4 !important; }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-today { background: #bbf7d0; color: #14532d; font-size: 10px; padding: 2px 7px; margin-left: 6px; }
+
+    .truck-chip { background: #1a73e8; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+
+    .last-trip-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid #f0f4f8; }
+    .last-trip-item:last-child { border-bottom: none; }
+    .trip-dot { width: 8px; height: 8px; border-radius: 50%; background: #1a73e8; flex-shrink: 0; }
+    .trip-route { font-size: 13px; font-weight: 600; color: #1a202c; }
+    .trip-meta { font-size: 11px; color: #888; margin-top: 2px; }
+
+    .search-wrap { position: relative; }
+    .search-wrap input { padding-left: 36px; }
+    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #aaa; pointer-events: none; }
+
+    .status-bar {
+      background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; color: #2e7d32; font-weight: 500;
+      margin-bottom: 22px; display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; flex-shrink: 0; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .actions { display: flex; gap: 6px; align-items: center; }
+
+    /* PAGINATION */
+    .pagination {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; border-top: 1px solid #f0f4f8; flex-wrap: wrap; gap: 10px;
+    }
+    .pagination-info { font-size: 13px; color: #888; }
+    .pagination-controls { display: flex; align-items: center; gap: 6px; }
+    .page-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #e2e8f0;
+      background: white; font-size: 13px; font-weight: 600; color: #555;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .page-btn:hover { border-color: #1a73e8; color: #1a73e8; background: #f0f7ff; }
+    .page-btn.active { background: #1a73e8; color: white; border-color: #1a73e8; }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .page-btn.nav { width: auto; padding: 0 12px; font-size: 12px; }
+    .rows-select { padding: 6px 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #555; cursor: pointer; outline: none; width: auto; }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .topbar { padding: 0 16px; }
+      .main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">🚛</div>
+    <div>
+      <div class="topbar-title">Truck Tracking PRO</div>
+      <div class="topbar-sub">Congo Logistics SARL — Fleet Management</div>
+    </div>
+  </div>
+  <div class="topbar-badge" id="liveTime">Loading...</div>
+</div>
+
+<div class="main">
+
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span>Live dashboard </span>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi-card"><div class="kpi-label">Trips Today</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Active Trucks Today</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Tons This Month</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Total Trips</div><div class="kpi-value">—</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">➕ Add New Trip</div></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group"><label>Truck Number</label><select id="truck"></select></div>
+          <div class="form-group"><label>Date</label><input type="date" id="date"></div>
+          <div class="form-group"><label>Loading Point (From)</label><select id="loading"></select></div>
+          <div class="form-group"><label>Drop-off Point (To)</label><select id="dropoff"></select></div>
+          <div class="form-group"><label>Departure Load (tons)</label><input type="number" id="departLoad" placeholder="0.0" step="0.1" min="0"></div>
+          <div class="form-group"><label>Arrival Load (tons)</label><input type="number" id="arrivalLoad" placeholder="0.0" step="0.1" min="0"></div>
+          <div class="form-group full"><button class="btn btn-primary" id="saveBtn" onclick="addTrip()">✅ Save Trip</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">📍 Last Trip Per Truck</div></div>
+      <div class="card-body" id="lastTrips" style="max-height:340px;overflow-y:auto;">
+        <div style="color:#aaa;font-size:13px;">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔍 Search & Filter</div></div>
+      <div class="card-body">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Search by Truck</label>
+          <div class="search-wrap">
+            <span class="search-icon">🔎</span>
+            <input type="text" id="searchTruck" placeholder="Type truck number..." onkeyup="onSearch()">
+          </div>
+        </div>
+        <div class="form-group"><label>Filter by Date</label><input type="date" id="filterDate" onchange="onSearch()"></div>
+        <button class="btn btn-secondary" style="width:100%;margin-top:12px;justify-content:center;" onclick="clearFilters()">✖ Clear Filters</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">📅 Monthly Report</div></div>
+      <div class="card-body">
+        <div class="form-group" style="margin-bottom:12px;"><label>Select Truck</label><select id="filterTruck"></select></div>
+        <div class="form-group" style="margin-bottom:12px;"><label>Select Month</label><input type="month" id="filterMonth"></div>
+        <button class="btn btn-primary" onclick="downloadMonthly()">📥 Download CSV Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALL TRIPS TABLE WITH PAGINATION -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 All Recorded Trips</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <label style="font-size:12px;color:#888;text-transform:none;letter-spacing:0;">Rows per page:</label>
+        <select class="rows-select" id="rowsPerPage" onchange="changeRowsPerPage()">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <span id="tripCount" style="font-size:12px;color:#999;">Loading...</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Truck</th><th>From</th><th>To</th><th>Date</th>
+            <th>Departure (t)</th><th>Arrival (t)</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tripsBody">
+          <tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px;">Loading trips...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="paginationBar"></div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = "https://rpfxslmaiozjrmheylfv.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwZnhzbG1haW96anJtaGV5bGZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MDIyMDcsImV4cCI6MjA5MTE3ODIwN30.LXnQSvrjilqudg2kHIWJr_ysFF3RCMww4fxqjMWNQLQ";
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const trucks = [
+    "7858AC05","7260AE05","0795AB14","1093AX05","7971AV05","5754AB04","8944AV05",
+    "2073AB14","2074AB14","2860AB14","2861AB14","8345AP05","9573AB14","2075AB14",
+    "3820AA24","3822AA24","3941AB14","3819AA24","4175AA24","7962AB14","4080AA24",
+    "6416AB14","0457AB04","8923AV05","5760AB04","7961AB14","0687AA04","7181AC22","4060AT05"
+  ];
+  const places = [
+    "Kalongwe","Luilu","Kcc","Sicomines","KPM","CCR","KIK","Excellence","Golden",
+    "Cdm","Lupoto","Ruashi","Kamoa","Stl","Smco","Mutanda","Lcs","Mumi",
+    "Kimin","Kempy","Kfm","Metakol","Sabwe"
+  ];
+
+  let allData = [];
+  let filteredData = [];
+  let currentPage = 1;
+  let rowsPerPage = 20;
+
+  function formatDate(iso) {
+    if (!iso) return "";
+    const [y,m,d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById("liveTime").textContent =
+      now.toLocaleDateString("en-GB") + "  " + now.toLocaleTimeString("en-GB",{hour:'2-digit',minute:'2-digit'});
+  }
+  updateClock(); setInterval(updateClock, 1000);
+
+  function loadDropdowns() {
+    const ts = document.getElementById("truck");
+    const ft = document.getElementById("filterTruck");
+    ft.innerHTML = '<option value="">All Trucks</option>';
+    trucks.forEach(t => {
+      ts.innerHTML += `<option value="${t}">${t}</option>`;
+      ft.innerHTML += `<option value="${t}">${t}</option>`;
+    });
+    places.forEach(p => {
+      document.getElementById("loading").innerHTML += `<option value="${p}">${p}</option>`;
+      document.getElementById("dropoff").innerHTML += `<option value="${p}">${p}</option>`;
+    });
+  }
+
+  async function addTrip() {
+    const truck = document.getElementById("truck").value;
+    const loading = document.getElementById("loading").value;
+    const dropoff = document.getElementById("dropoff").value;
+    const date = document.getElementById("date").value;
+    const departLoad = parseFloat(document.getElementById("departLoad").value) || 0;
+    const arrivalLoad = parseFloat(document.getElementById("arrivalLoad").value) || 0;
+
+    if (!truck || !loading || !dropoff || !date) { alert("Please fill Truck, From, To and Date"); return; }
+
+    const btn = document.getElementById("saveBtn");
+    btn.textContent = "Saving..."; btn.disabled = true;
+
+    const { error } = await db.from("trips").insert([{
+      truck, loading, dropoff, date, departLoad, arrivalLoad, timestamp: new Date().toISOString()
+    }]);
+
+    btn.innerHTML = "✅ Save Trip"; btn.disabled = false;
+
+    if (error) { alert("Error: " + error.message); }
+    else {
+      document.getElementById("departLoad").value = "";
+      document.getElementById("arrivalLoad").value = "";
+      loadData();
+    }
+  }
+
+  async function loadData() {
+    const { data, error } = await db.from("trips").select("*").order("date", { ascending: false });
+    if (error) { console.error(error); return; }
+
+    allData = data;
+    applyFilters();
+    updateKPI();
+    updateLastTrips();
+  }
+
+  function updateKPI() {
+    const today = new Date().toISOString().split("T")[0];
+    const thisMonth = today.substring(0, 7);
+    const todayTrips = allData.filter(d => d.date === today).length;
+    const activeTrucks = new Set(allData.filter(d => d.date === today).map(d => d.truck)).size;
+    const totalTons = allData.filter(d => d.date && d.date.startsWith(thisMonth))
+      .reduce((s,d) => s + (parseFloat(d.arrivalLoad)||0), 0);
+
+    document.getElementById("kpiGrid").innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Trips Today</div><div class="kpi-value">${todayTrips}</div><div class="kpi-sub">as of today</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Active Trucks Today</div><div class="kpi-value">${activeTrucks}</div><div class="kpi-sub">out of ${trucks.length} total</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Tons This Month</div><div class="kpi-value">${totalTons.toFixed(1)}</div><div class="kpi-sub">arrival load</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Total Trips</div><div class="kpi-value">${allData.length}</div><div class="kpi-sub">all time</div></div>
+    `;
+  }
+
+  function updateLastTrips() {
+    const lastMap = {};
+    allData.forEach(d => { if (!lastMap[d.truck]) lastMap[d.truck] = d; });
+    const div = document.getElementById("lastTrips");
+    div.innerHTML = "";
+    Object.values(lastMap).forEach(d => {
+      div.innerHTML += `<div class="last-trip-item">
+        <div class="trip-dot"></div>
+        <div><div class="trip-route"><strong>${d.truck}</strong>: ${d.loading} → ${d.dropoff}</div>
+        <div class="trip-meta">${formatDate(d.date)} | ${d.departLoad}t → ${d.arrivalLoad}t</div></div>
+      </div>`;
+    });
+  }
+
+  function applyFilters() {
+    const search = document.getElementById("searchTruck").value.toUpperCase().trim();
+    const dateIso = document.getElementById("filterDate").value;
+    const dateDisplay = dateIso ? formatDate(dateIso) : "";
+
+    filteredData = allData.filter(d => {
+      const matchTruck = !search || d.truck.toUpperCase().includes(search);
+      const matchDate = !dateDisplay || formatDate(d.date) === dateDisplay;
+      return matchTruck && matchDate;
+    });
+
+    currentPage = 1;
+    renderTable();
+  }
+
+  function renderTable() {
+    const today = new Date().toISOString().split("T")[0];
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+    const start = (currentPage - 1) * rowsPerPage;
+    const pageData = filteredData.slice(start, start + rowsPerPage);
+
+    document.getElementById("tripCount").textContent = `${filteredData.length} of ${allData.length} trips`;
+
+    let rows = "";
+    pageData.forEach(d => {
+      const isToday = d.date === today;
+      rows += `<tr class="${isToday?'today-row':''}">
+        <td><span class="truck-chip">${d.truck}</span>${isToday?'<span class="badge badge-today">TODAY</span>':''}</td>
+        <td>${d.loading}</td><td>${d.dropoff}</td><td>${formatDate(d.date)}</td>
+        <td><span class="badge badge-blue">${d.departLoad} t</span></td>
+        <td><span class="badge badge-green">${d.arrivalLoad} t</span></td>
+        <td><div class="actions">
+          <button class="btn btn-sm btn-secondary" onclick="editTrip('${d.id}')">✏️ Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteTrip('${d.id}')">🗑️</button>
+        </div></td>
+      </tr>`;
+    });
+
+    document.getElementById("tripsBody").innerHTML = rows ||
+      `<tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px;">No trips found</td></tr>`;
+
+    renderPagination(totalPages);
+  }
+
+  function renderPagination(totalPages) {
+    const bar = document.getElementById("paginationBar");
+    if (totalPages <= 1) { bar.innerHTML = ""; return; }
+
+    const start = (currentPage - 1) * rowsPerPage + 1;
+    const end = Math.min(currentPage * rowsPerPage, filteredData.length);
+
+    let pageButtons = "";
+
+    // Always show first page
+    pageButtons += `<button class="page-btn ${currentPage===1?'active':''}" onclick="goToPage(1)">1</button>`;
+
+    // Ellipsis after first
+    if (currentPage > 4) pageButtons += `<span style="padding:0 4px;color:#aaa;">...</span>`;
+
+    // Pages around current
+    for (let i = Math.max(2, currentPage - 2); i <= Math.min(totalPages - 1, currentPage + 2); i++) {
+      pageButtons += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+
+    // Ellipsis before last
+    if (currentPage < totalPages - 3) pageButtons += `<span style="padding:0 4px;color:#aaa;">...</span>`;
+
+    // Always show last page
+    if (totalPages > 1)
+      pageButtons += `<button class="page-btn ${currentPage===totalPages?'active':''}" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+
+    bar.innerHTML = `
+      <div class="pagination-info">Showing ${start}–${end} of ${filteredData.length} trips</div>
+      <div class="pagination-controls">
+        <button class="page-btn nav" onclick="goToPage(${currentPage-1})" ${currentPage===1?'disabled':''}>← Prev</button>
+        ${pageButtons}
+        <button class="page-btn nav" onclick="goToPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>Next →</button>
+      </div>
+    `;
+  }
+
+  function goToPage(page) {
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    renderTable();
+    document.querySelector('.card:last-child').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function changeRowsPerPage() {
+    rowsPerPage = parseInt(document.getElementById("rowsPerPage").value);
+    currentPage = 1;
+    renderTable();
+  }
+
+  function onSearch() { applyFilters(); }
+
+  function clearFilters() {
+    document.getElementById("searchTruck").value = "";
+    document.getElementById("filterDate").value = "";
+    applyFilters();
+  }
+
+  async function deleteTrip(id) {
+    if (confirm("Delete this trip?")) {
+      await db.from("trips").delete().eq("id", id);
+      loadData();
+    }
+  }
+
+  async function editTrip(id) {
+    const nd = prompt("New Departure Load (tons):"); const na = prompt("New Arrival Load (tons):");
+    if (nd !== null || na !== null) {
+      await db.from("trips").update({ departLoad: parseFloat(nd)||0, arrivalLoad: parseFloat(na)||0 }).eq("id", id);
+      loadData();
+    }
+  }
+
+  async function downloadMonthly() {
+    const t = document.getElementById("filterTruck").value;
+    const m = document.getElementById("filterMonth").value;
+    if (!m) return alert("Please select a month");
+    let q = db.from("trips").select("*");
+    if (t) q = q.eq("truck", t);
+    const { data, error } = await q;
+    if (error) return alert("Error: " + error.message);
+    const filtered = data.filter(d => d.date && d.date.startsWith(m));
+    let csv = "Truck,From,To,Date,Departure (tons),Arrival (tons)\n";
+    filtered.forEach(d => { csv += `"${d.truck}","${d.loading}","${d.dropoff}",${formatDate(d.date)},${d.departLoad},${d.arrivalLoad}\n`; });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    a.download = `${t||"All-Trucks"}_${m}.csv`;
+    a.click();
+  }
+
+  loadDropdowns();
+  loadData();
+  setInterval(loadData, 30000);
+</script>
+</body>
+</html>
+
