@@ -213,6 +213,7 @@
         <div class="form-group" style="margin-bottom:12px;"><label>Select Truck</label><select id="filterTruck"></select></div>
         <div class="form-group" style="margin-bottom:12px;"><label>Select Month</label><input type="month" id="filterMonth"></div>
         <button class="btn btn-primary" onclick="downloadMonthly()">📥 Download CSV Report</button>
+<button class="btn btn-danger" style="width:100%;margin-top:8px;justify-content:center;" onclick="deleteMonthTrips()">🗑️ Delete Month's Trips</button>
       </div>
     </div>
   </div>
@@ -418,6 +419,24 @@
     const nd = prompt("New Departure Load (tons):"); const na = prompt("New Arrival Load (tons):");
     if (nd !== null || na !== null) { await db.from("trips").update({ departLoad: parseFloat(nd)||0, arrivalLoad: parseFloat(na)||0 }).eq("id", id); loadData(); }
   }
+async function deleteMonthTrips() {
+  const m = document.getElementById("filterMonth").value;
+  const t = document.getElementById("filterTruck").value;
+  if (!m) return alert("Please select a month");
+
+  const matches = allData.filter(d => d.date && d.date.startsWith(m) && (!t || d.truck === t));
+  if (matches.length === 0) return alert("No trips found for that month" + (t ? ` for truck ${t}` : ""));
+
+  const confirmMsg = `Delete ${matches.length} trip(s) for ${m}${t ? ` (truck ${t})` : " (all trucks)"}?\nThis cannot be undone.`;
+  if (!confirm(confirmMsg)) return;
+
+  let q = db.from("trips").delete().like("date", `${m}%`);
+  if (t) q = q.eq("truck", t);
+
+  const { error } = await q;
+  if (error) return alert("Error: " + error.message);
+  loadData();
+}
   async function downloadMonthly() {
     const t = document.getElementById("filterTruck").value;
     const m = document.getElementById("filterMonth").value;
